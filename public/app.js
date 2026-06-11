@@ -446,6 +446,8 @@ function handleIncrement() {
     if (currentSeatsCount < MAX_SEATS) {
         currentSeatsCount += 1;
         updateUI();
+        // Auto-select an available seat if needed
+        autoSelectSeatIfNeeded();
     } else {
         const msg = state.language === 'ar' 
             ? `الحد الأقصى reached. يمكنك حجز ${MAX_SEATS} مقاعد فقط.`
@@ -459,12 +461,56 @@ function handleDecrement() {
     if (currentSeatsCount > 1) {
         currentSeatsCount -= 1;
         updateUI();
+        // Remove last selected seat if exceeds new count
+        removeExtraSeats();
     } else {
         const msg = state.language === 'ar' 
             ? `الحد الأدنى reached. يجب اختيار مقعد واحد على الأقل.`
             : `Minimum limit reached. At least 1 seat must be selected.`;
         console.log(msg);
     }
+}
+
+// Auto-select cheapest available seat when counter increases
+function autoSelectSeatIfNeeded() {
+    if (state.selectedSeats.length < currentSeatsCount) {
+        // Find cheapest available seats
+        const availableSeats = document.querySelectorAll('.modern-seat.available:not(.selected)');
+        let seatsToAdd = currentSeatsCount - state.selectedSeats.length;
+        
+        if (seatsToAdd > 0 && availableSeats.length > 0) {
+            // Sort by price to get cheapest first
+            const seatArray = Array.from(availableSeats).sort((a, b) => {
+                const priceA = parseFloat(a.dataset.seatPrice) || 0;
+                const priceB = parseFloat(b.dataset.seatPrice) || 0;
+                return priceA - priceB;
+            });
+            
+            for (let i = 0; i < Math.min(seatsToAdd, seatArray.length); i++) {
+                const seatEl = seatArray[i];
+                const seatId = parseInt(seatEl.dataset.seatId);
+                const seatPrice = parseFloat(seatEl.dataset.seatPrice);
+                
+                // Add to selected seats
+                state.selectedSeats.push({ id: seatId, price: seatPrice });
+                seatEl.classList.add('selected');
+            }
+            
+            updateSeatsSummary();
+        }
+    }
+}
+
+// Remove extra seats when counter decreases
+function removeExtraSeats() {
+    while (state.selectedSeats.length > currentSeatsCount) {
+        const removedSeat = state.selectedSeats.pop();
+        const seatEl = document.querySelector(`[data-seat-id="${removedSeat.id}"]`);
+        if (seatEl) {
+            seatEl.classList.remove('selected');
+        }
+    }
+    updateSeatsSummary();
 }
 
 // Initialize counter on page load
@@ -480,14 +526,27 @@ function toggleSeat(seatId, status, price) {
     
     if (index > -1) {
         // Remove seat if already selected
+        if (state.selectedSeats.length <= 1) {
+            // Don't allow removing the last seat - show message
+            const msg = state.language === 'ar' 
+                ? `لا يمكن إلغاء اختيار آخر مقعد. الحد الأدنى مقعد واحد.`
+                : `Cannot remove last seat. Minimum 1 seat required.`;
+            alert(msg);
+            return;
+        }
         state.selectedSeats.splice(index, 1);
         if (seatEl) seatEl.classList.remove('selected');
+        // Decrease counter when seat is removed
+        if (currentSeatsCount > 1) {
+            currentSeatsCount -= 1;
+            updateUI();
+        }
     } else {
-        // Check max seats limit
-        if (state.selectedSeats.length >= MAX_SEATS) {
+        // Check max seats limit using counter
+        if (state.selectedSeats.length >= currentSeatsCount) {
             const msg = state.language === 'ar' 
-                ? `يمكنك اختيار ${MAX_SEATS} مقاعد كحد أقصى` 
-                : `You can select up to ${MAX_SEATS} seats maximum`;
+                ? `يمكنك اختيار ${currentSeatsCount} مقاعد فقط. استخدم + لزيادة العدد.`
+                : `You can only select ${currentSeatsCount} seats. Use + to increase.`;
             alert(msg);
             return;
         }
@@ -2000,6 +2059,12 @@ async function renderSeatPicker(matchId) {
         
         // Auto-select first category on load (UX improvement)
         setTimeout(autoSelectFirstCategory, 100);
+        
+        // Auto-select initial seats based on counter
+        setTimeout(() => {
+            updateUI();
+            autoSelectSeatIfNeeded();
+        }, 150);
         
     } catch (error) {
         console.error('Seat picker error:', error);
