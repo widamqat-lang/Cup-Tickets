@@ -391,11 +391,11 @@ async function renderMatch(matchId) {
                 
                 <!-- Seat Counter Section -->
                 <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin: 20px 0; padding: 15px; background: var(--bg-dark); border-radius: 8px;">
-                    <button id="seats-minus-btn" onclick="handleDecrement()" style="width: 45px; height: 45px; font-size: 24px; font-weight: bold; border: none; border-radius: 50%; background: var(--danger); color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                    <button id="seats-minus-btn" onclick="handleDecrement()" style="width: 45px; height: 45px; font-size: 24px; font-weight: bold; border: none; border-radius: 50%; background: var(--danger); color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; opacity: 0.5;">
                         −
                     </button>
                     <div style="min-width: 60px; text-align: center;">
-                        <span id="seats-count-display" style="font-size: 32px; font-weight: bold; color: var(--primary);">${currentSeatsCount}</span>
+                        <span id="seats-count-display" style="font-size: 32px; font-weight: bold; color: var(--primary);">0</span>
                         <div style="font-size: 12px; color: var(--text-secondary);">${state.language === 'ar' ? 'مقعد' : 'seats'}</div>
                     </div>
                     <button id="seats-plus-btn" onclick="handleIncrement()" style="width: 45px; height: 45px; font-size: 24px; font-weight: bold; border: none; border-radius: 50%; background: var(--success); color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
@@ -415,108 +415,83 @@ async function renderMatch(matchId) {
 }
 
 const MAX_SEATS = 6;
-let currentSeatsCount = 1; // Start with minimum 1 seat
 
 // Update UI function to sync the counter display
 function updateUI() {
     const countDisplay = document.getElementById('seats-count-display');
     const minusBtn = document.getElementById('seats-minus-btn');
     const plusBtn = document.getElementById('seats-plus-btn');
+    const checkoutBtn = document.getElementById('checkout-btn');
+    const proceedBtn = document.getElementById('proceed-btn');
+    
+    const seatCount = state.selectedSeats.length;
     
     if (countDisplay) {
-        countDisplay.textContent = currentSeatsCount;
+        countDisplay.textContent = seatCount;
     }
     
     // Update button states
     if (minusBtn) {
-        minusBtn.disabled = currentSeatsCount <= 1;
-        minusBtn.style.opacity = currentSeatsCount <= 1 ? '0.5' : '1';
-        minusBtn.style.cursor = currentSeatsCount <= 1 ? 'not-allowed' : 'pointer';
+        minusBtn.disabled = seatCount <= 0;
+        minusBtn.style.opacity = seatCount <= 0 ? '0.5' : '1';
+        minusBtn.style.cursor = seatCount <= 0 ? 'not-allowed' : 'pointer';
     }
     
     if (plusBtn) {
-        plusBtn.disabled = currentSeatsCount >= MAX_SEATS;
-        plusBtn.style.opacity = currentSeatsCount >= MAX_SEATS ? '0.5' : '1';
-        plusBtn.style.cursor = currentSeatsCount >= MAX_SEATS ? 'not-allowed' : 'pointer';
+        plusBtn.disabled = seatCount >= MAX_SEATS;
+        plusBtn.style.opacity = seatCount >= MAX_SEATS ? '0.5' : '1';
+        plusBtn.style.cursor = seatCount >= MAX_SEATS ? 'not-allowed' : 'pointer';
+    }
+    
+    // Enable/disable proceed buttons based on seat selection
+    if (checkoutBtn) {
+        checkoutBtn.disabled = seatCount === 0;
+    }
+    if (proceedBtn) {
+        proceedBtn.disabled = seatCount === 0;
     }
 }
 
 // Handle increment - add 1 seat up to maximum
 function handleIncrement() {
-    if (currentSeatsCount < MAX_SEATS) {
-        currentSeatsCount += 1;
-        updateUI();
-        // Auto-select an available seat if needed
-        autoSelectSeatIfNeeded();
-    } else {
-        const msg = state.language === 'ar' 
-            ? `الحد الأقصى reached. يمكنك حجز ${MAX_SEATS} مقاعد فقط.`
-            : `Maximum limit reached. You can only book up to ${MAX_SEATS} seats.`;
-        alert(msg);
-    }
-}
-
-// Handle decrement - remove 1 seat down to minimum
-function handleDecrement() {
-    if (currentSeatsCount > 1) {
-        currentSeatsCount -= 1;
-        updateUI();
-        // Remove last selected seat if exceeds new count
-        removeExtraSeats();
-    } else {
-        const msg = state.language === 'ar' 
-            ? `الحد الأدنى reached. يجب اختيار مقعد واحد على الأقل.`
-            : `Minimum limit reached. At least 1 seat must be selected.`;
-        console.log(msg);
-    }
-}
-
-// Auto-select cheapest available seat when counter increases
-function autoSelectSeatIfNeeded() {
-    if (state.selectedSeats.length < currentSeatsCount) {
-        // Find cheapest available seats
+    if (state.selectedSeats.length < MAX_SEATS) {
+        // Auto-select cheapest available seat
         const availableSeats = document.querySelectorAll('.modern-seat.available:not(.selected)');
-        let seatsToAdd = currentSeatsCount - state.selectedSeats.length;
         
-        if (seatsToAdd > 0 && availableSeats.length > 0) {
-            // Sort by price to get cheapest first
+        if (availableSeats.length > 0) {
             const seatArray = Array.from(availableSeats).sort((a, b) => {
                 const priceA = parseFloat(a.dataset.seatPrice) || 0;
                 const priceB = parseFloat(b.dataset.seatPrice) || 0;
                 return priceA - priceB;
             });
             
-            for (let i = 0; i < Math.min(seatsToAdd, seatArray.length); i++) {
-                const seatEl = seatArray[i];
-                const seatId = parseInt(seatEl.dataset.seatId);
-                const seatPrice = parseFloat(seatEl.dataset.seatPrice);
-                
-                // Add to selected seats
-                state.selectedSeats.push({ id: seatId, price: seatPrice });
-                seatEl.classList.add('selected');
-            }
+            const seatEl = seatArray[0];
+            const seatId = parseInt(seatEl.dataset.seatId);
+            const seatPrice = parseFloat(seatEl.dataset.seatPrice);
             
+            state.selectedSeats.push({ id: seatId, price: seatPrice });
+            seatEl.classList.add('selected');
             updateSeatsSummary();
         }
+    } else {
+        const msg = state.language === 'ar' 
+            ? `الحد الأقصى. يمكنك حجز ${MAX_SEATS} مقاعد فقط.`
+            : `Maximum limit reached. You can only book up to ${MAX_SEATS} seats.`;
+        alert(msg);
     }
 }
 
-// Remove extra seats when counter decreases
-function removeExtraSeats() {
-    while (state.selectedSeats.length > currentSeatsCount) {
-        const removedSeat = state.selectedSeats.pop();
+// Handle decrement - remove 1 seat
+function handleDecrement() {
+    if (state.selectedSeats.length > 0) {
+        const removedSeat = state.selectedSeats.shift(); // Remove first seat (FIFO)
         const seatEl = document.querySelector(`[data-seat-id="${removedSeat.id}"]`);
         if (seatEl) {
             seatEl.classList.remove('selected');
         }
+        updateSeatsSummary();
     }
-    updateSeatsSummary();
 }
-
-// Initialize counter on page load
-document.addEventListener('DOMContentLoaded', function() {
-    updateUI();
-});
 
 function toggleSeat(seatId, status, price) {
     if (status !== 'available') return;
@@ -526,27 +501,14 @@ function toggleSeat(seatId, status, price) {
     
     if (index > -1) {
         // Remove seat if already selected
-        if (state.selectedSeats.length <= 1) {
-            // Don't allow removing the last seat - show message
-            const msg = state.language === 'ar' 
-                ? `لا يمكن إلغاء اختيار آخر مقعد. الحد الأدنى مقعد واحد.`
-                : `Cannot remove last seat. Minimum 1 seat required.`;
-            alert(msg);
-            return;
-        }
         state.selectedSeats.splice(index, 1);
         if (seatEl) seatEl.classList.remove('selected');
-        // Decrease counter when seat is removed
-        if (currentSeatsCount > 1) {
-            currentSeatsCount -= 1;
-            updateUI();
-        }
     } else {
-        // Check max seats limit using counter
-        if (state.selectedSeats.length >= currentSeatsCount) {
+        // Check max seats limit
+        if (state.selectedSeats.length >= MAX_SEATS) {
             const msg = state.language === 'ar' 
-                ? `يمكنك اختيار ${currentSeatsCount} مقاعد فقط. استخدم + لزيادة العدد.`
-                : `You can only select ${currentSeatsCount} seats. Use + to increase.`;
+                ? `الحد الأقصى. يمكنك اختيار ${MAX_SEATS} مقاعد فقط.`
+                : `Maximum limit reached. You can only select ${MAX_SEATS} seats.`;
             alert(msg);
             return;
         }
@@ -2059,12 +2021,6 @@ async function renderSeatPicker(matchId) {
         
         // Auto-select first category on load (UX improvement)
         setTimeout(autoSelectFirstCategory, 100);
-        
-        // Auto-select initial seats based on counter
-        setTimeout(() => {
-            updateUI();
-            autoSelectSeatIfNeeded();
-        }, 150);
         
     } catch (error) {
         console.error('Seat picker error:', error);
