@@ -388,6 +388,20 @@ async function renderMatch(matchId) {
             
             <div id="selected-seats-summary" style="margin-top: 30px; padding: 20px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border);">
                 <h3>${t('selected')}: <span id="selected-count">0</span> ${state.language === 'ar' ? 'مقعد' : 'seats'}</h3>
+                
+                <!-- Seat Counter Section -->
+                <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin: 20px 0; padding: 15px; background: var(--bg-dark); border-radius: 8px;">
+                    <button id="seats-minus-btn" onclick="handleDecrement()" style="width: 45px; height: 45px; font-size: 24px; font-weight: bold; border: none; border-radius: 50%; background: var(--danger); color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                        −
+                    </button>
+                    <div style="min-width: 60px; text-align: center;">
+                        <span id="seats-count-display" style="font-size: 32px; font-weight: bold; color: var(--primary);">${currentSeatsCount}</span>
+                        <div style="font-size: 12px; color: var(--text-secondary);">${state.language === 'ar' ? 'مقعد' : 'seats'}</div>
+                    </div>
+                    <button id="seats-plus-btn" onclick="handleIncrement()" style="width: 45px; height: 45px; font-size: 24px; font-weight: bold; border: none; border-radius: 50%; background: var(--success); color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                        +
+                    </button>
+                </div>
                 <p>${t('price')}: <span id="selected-price">$0.00</span></p>
                 <div id="max-seats-msg" style="display: none; color: #ff9800; font-size: 12px; margin: 8px 0;">
                     ${state.language === 'ar' ? `الحد الأقصى ${MAX_SEATS} مقاعد` : `Maximum ${MAX_SEATS} seats`}
@@ -401,6 +415,62 @@ async function renderMatch(matchId) {
 }
 
 const MAX_SEATS = 6;
+let currentSeatsCount = 1; // Start with minimum 1 seat
+
+// Update UI function to sync the counter display
+function updateUI() {
+    const countDisplay = document.getElementById('seats-count-display');
+    const minusBtn = document.getElementById('seats-minus-btn');
+    const plusBtn = document.getElementById('seats-plus-btn');
+    
+    if (countDisplay) {
+        countDisplay.textContent = currentSeatsCount;
+    }
+    
+    // Update button states
+    if (minusBtn) {
+        minusBtn.disabled = currentSeatsCount <= 1;
+        minusBtn.style.opacity = currentSeatsCount <= 1 ? '0.5' : '1';
+        minusBtn.style.cursor = currentSeatsCount <= 1 ? 'not-allowed' : 'pointer';
+    }
+    
+    if (plusBtn) {
+        plusBtn.disabled = currentSeatsCount >= MAX_SEATS;
+        plusBtn.style.opacity = currentSeatsCount >= MAX_SEATS ? '0.5' : '1';
+        plusBtn.style.cursor = currentSeatsCount >= MAX_SEATS ? 'not-allowed' : 'pointer';
+    }
+}
+
+// Handle increment - add 1 seat up to maximum
+function handleIncrement() {
+    if (currentSeatsCount < MAX_SEATS) {
+        currentSeatsCount += 1;
+        updateUI();
+    } else {
+        const msg = state.language === 'ar' 
+            ? `الحد الأقصى reached. يمكنك حجز ${MAX_SEATS} مقاعد فقط.`
+            : `Maximum limit reached. You can only book up to ${MAX_SEATS} seats.`;
+        alert(msg);
+    }
+}
+
+// Handle decrement - remove 1 seat down to minimum
+function handleDecrement() {
+    if (currentSeatsCount > 1) {
+        currentSeatsCount -= 1;
+        updateUI();
+    } else {
+        const msg = state.language === 'ar' 
+            ? `الحد الأدنى reached. يجب اختيار مقعد واحد على الأقل.`
+            : `Minimum limit reached. At least 1 seat must be selected.`;
+        console.log(msg);
+    }
+}
+
+// Initialize counter on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateUI();
+});
 
 function toggleSeat(seatId, status, price) {
     if (status !== 'available') return;
