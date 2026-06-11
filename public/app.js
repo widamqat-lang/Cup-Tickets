@@ -2095,9 +2095,9 @@ function renderMobileSeatsList(groupedSeats) {
                     </div>
                     <div class="row-actions">
                         ${hasSelection ? `
-                            <button class="remove-btn" onclick="removeRowSeats('${sectionId}', '${rowId}')">−</button>
+                            <button class="remove-btn" onclick="removeOneSeatFromRow('${sectionId}', '${rowId}')">−</button>
                         ` : ''}
-                        <button class="add-btn ${hasSelection ? 'added' : ''}" onclick="selectRowSeats('${sectionId}', '${rowId}')" ${addDisabled ? 'disabled' : ''}>+${canAddFromRow > 1 && !addDisabled ? canAddFromRow : ''}</button>
+                        <button class="add-btn ${hasSelection ? 'added' : ''}" onclick="selectRowSeats('${sectionId}', '${rowId}')" ${addDisabled ? 'disabled' : ''}>+</button>
                     </div>
                 </div>
             `;
@@ -2132,32 +2132,30 @@ function showMobileSection(sectionId, btn) {
     document.getElementById(`mobile-section-${sectionId}`).classList.remove('hidden');
 }
 
-// Select seats from a row (add multiple seats)
+// Select seats from a row (add ONE seat at a time)
 function selectRowSeats(sectionId, rowId, availableCount, price) {
     const section = window.currentSeatsData[sectionId];
     const seats = section.rows[rowId];
     const availableSeats = seats.filter(s => s.status === 'available');
     
-    // Calculate remaining seats we can add
-    const remainingSlots = MAX_SEATS - state.selectedSeats.length;
-    if (remainingSlots <= 0) {
+    // Check if we can add more seats
+    if (state.selectedSeats.length >= MAX_SEATS) {
         const msg = state.language === 'ar' 
-            ? `يمكنك اختيار ${MAX_SEATS} مقاعد كحد أقصى` 
-            : `You can select up to ${MAX_SEATS} seats maximum`;
+            ? `الحد الأقصى. يمكنك اختيار ${MAX_SEATS} مقاعد فقط.`
+            : `Maximum limit reached. You can only select ${MAX_SEATS} seats.`;
         alert(msg);
         return;
     }
     
-    // Find available seats not already selected
+    // Find first available seat not already selected
     const unselectedAvailable = availableSeats.filter(seat => {
         const key = `${seat.section}-${seat.row}-${seat.seat_number}`;
         return !state.selectedSeats.some(s => s.key === key);
     });
     
-    // Add seats up to remaining slots
-    const seatsToAdd = Math.min(remainingSlots, unselectedAvailable.length);
-    for (let i = 0; i < seatsToAdd; i++) {
-        const seat = unselectedAvailable[i];
+    // Add only ONE seat
+    if (unselectedAvailable.length > 0) {
+        const seat = unselectedAvailable[0];
         state.selectedSeats.push({
             key: `${seat.section}-${seat.row}-${seat.seat_number}`,
             id: seat.id,
@@ -2169,16 +2167,22 @@ function selectRowSeats(sectionId, rowId, availableCount, price) {
     }
     
     updateMobileSelectionUI();
+    updateSeatsSummary();
 }
 
-// Remove all seats from a row
-function removeRowSeats(sectionId, rowId) {
-    // Remove all selected seats from this row
-    state.selectedSeats = state.selectedSeats.filter(s => 
-        !(s.sectionId === sectionId && s.rowId === rowId)
+// Remove ONE seat from a row
+function removeOneSeatFromRow(sectionId, rowId) {
+    // Find first selected seat from this row and remove only ONE
+    const seatIndex = state.selectedSeats.findIndex(s => 
+        s.sectionId === sectionId && s.rowId === rowId
     );
     
+    if (seatIndex > -1) {
+        state.selectedSeats.splice(seatIndex, 1);
+    }
+    
     updateMobileSelectionUI();
+    updateSeatsSummary();
 }
 
 // Update mobile selection UI
