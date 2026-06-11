@@ -2097,7 +2097,7 @@ function renderMobileSeatsList(groupedSeats) {
                         ${hasSelection ? `
                             <button class="remove-btn" onclick="removeOneSeatFromRow('${sectionId}', '${rowId}')">−</button>
                         ` : ''}
-                        <button class="add-btn ${hasSelection ? 'added' : ''}" onclick="selectRowSeats('${sectionId}', '${rowId}')" ${addDisabled ? 'disabled' : ''}>+</button>
+                        <button class="add-btn ${hasSelection ? 'added' : ''}" onclick="selectRowSeats('${sectionId}', '${rowId}')" ${remainingSlots === 0 ? 'disabled' : ''}>+</button>
                     </div>
                 </div>
             `;
@@ -2147,22 +2147,38 @@ function selectRowSeats(sectionId, rowId, availableCount, price) {
         return;
     }
     
-    // Find first available seat not already selected
+    // Find available seats not already selected
     const unselectedAvailable = availableSeats.filter(seat => {
         const key = `${seat.section}-${seat.row}-${seat.seat_number}`;
         return !state.selectedSeats.some(s => s.key === key);
     });
     
-    // Add only ONE seat
+    // Add only ONE seat - prioritize same row if already has selections
     if (unselectedAvailable.length > 0) {
-        const seat = unselectedAvailable[0];
+        let seatToAdd;
+        
+        // Check if this row already has selections - prefer adding from same row
+        const rowHasSelection = state.selectedSeats.some(s => 
+            s.sectionId === sectionId && s.rowId === rowId
+        );
+        
+        if (rowHasSelection) {
+            // Add from same row
+            seatToAdd = unselectedAvailable.find(seat => seat.row === rowId);
+        }
+        
+        // Fallback to first available
+        if (!seatToAdd) {
+            seatToAdd = unselectedAvailable[0];
+        }
+        
         state.selectedSeats.push({
-            key: `${seat.section}-${seat.row}-${seat.seat_number}`,
-            id: seat.id,
-            price: seat.price,
-            sectionId: seat.section,
-            rowId: seat.row,
-            seatNumber: seat.seat_number
+            key: `${seatToAdd.section}-${seatToAdd.row}-${seatToAdd.seat_number}`,
+            id: seatToAdd.id,
+            price: seatToAdd.price,
+            sectionId: seatToAdd.section,
+            rowId: seatToAdd.row,
+            seatNumber: seatToAdd.seat_number
         });
     }
     
