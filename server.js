@@ -225,7 +225,8 @@ setTimeout(() => {
     });
 }, 5000); // Delay by 5 seconds
 
-app.use(express.static('public'));
+// A. Serve static assets FIRST (must be before SPA fallback)
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Flag sanitization for match endpoints only
 app.use('/api/matches', (req, res, next) => {
@@ -484,15 +485,6 @@ app.get('/api/stadiums', (req, res) => {
     });
 });
 
-// SPA fallback
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
-
 // Update match (PUT)
 app.put('/api/matches/:id', (req, res) => {
     const { id } = req.params;
@@ -525,4 +517,18 @@ app.delete('/api/matches/:id', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true, changes: this.changes });
     });
+});
+
+// ==========================================
+// C. SPA FALLBACK - MUST BE LAST
+// ==========================================
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ==========================================
+// START SERVER
+// ==========================================
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
